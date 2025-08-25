@@ -1,0 +1,96 @@
+import sqlite3
+import hashlib
+
+# ----------------------------
+# Database Setup
+# ----------------------------
+conn = sqlite3.connect(":memory:")  # In-memory DB for online compilers
+cursor = conn.cursor()
+
+# Create tables
+cursor.execute("""
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+)
+""")
+
+cursor.execute("""
+CREATE TABLE posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
+# ----------------------------
+# Helper Functions
+# ----------------------------
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def register(username, password):
+    try:
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", 
+                       (username, hash_password(password)))
+        conn.commit()
+        print(f"✅ User '{username}' registered successfully!")
+    except sqlite3.IntegrityError:
+        print("⚠️ Username already exists!")
+
+def login(username, password):
+    cursor.execute("SELECT * FROM users WHERE username=? AND password=?", 
+                   (username, hash_password(password)))
+    return cursor.fetchone()
+
+def create_post(title, content):
+    cursor.execute("INSERT INTO posts (title, content) VALUES (?, ?)", (title, content))
+    conn.commit()
+    print("📝 Post created successfully!")
+
+def read_posts():
+    cursor.execute("SELECT * FROM posts")
+    posts = cursor.fetchall()
+    print("\n📌 Posts in Blog:")
+    for post in posts:
+        print(f"ID:{post[0]} | Title:{post[1]} | Content:{post[2]} | Created:{post[3]}")
+
+def update_post(post_id, new_title, new_content):
+    cursor.execute("UPDATE posts SET title=?, content=? WHERE id=?", 
+                   (new_title, new_content, post_id))
+    conn.commit()
+    print(f"✏️ Post {post_id} updated successfully!")
+
+def delete_post(post_id):
+    cursor.execute("DELETE FROM posts WHERE id=?", (post_id,))
+    conn.commit()
+    print(f"🗑️ Post {post_id} deleted successfully!")
+
+# ----------------------------
+# Simulation (Demo Run)
+# ----------------------------
+print("🚀 Basic CRUD Application with User Authentication\n")
+
+# User Registration
+register("haritha", "mypassword")
+
+# User Login
+user = login("haritha", "mypassword")
+if user:
+    print(f"✅ Login successful! Welcome {user[1]}\n")
+    
+    # CRUD Operations
+    create_post("My First Post", "This is the content of the first post.")
+    create_post("Second Post", "Another blog post goes here.")
+    
+    read_posts()
+    
+    update_post(1, "My Updated First Post", "Updated content for the first post.")
+    read_posts()
+    
+    delete_post(2)
+    read_posts()
+else:
+    print("❌ Login failed. Invalid credentials!")
